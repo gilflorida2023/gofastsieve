@@ -118,6 +118,31 @@ Miscellaneous:
 - `-c` suppresses all output and hashing — useful for benchmarking the raw sieve.
 - `-R` catches up the hash incrementally from the state file, then continues sieving from where it left off.
 
+### Bit-Packed Variant: `bitsgofastsieve`
+
+```bash
+# Build
+go build -o bitsgofastsieve ./cmd/bitsgofastsieve
+```
+
+`bitsgofastsieve` is an optimized variant that packs spoke survivors into `uint64` bitmasks and uses
+`bits.TrailingZeros64` to scan only set bits in Phase 2. This benefits large wheels the most.
+
+**Wheel support:** 30, 210, 2310 wheel only (use `fastsieve` for wheel 2/6).
+
+**Performance (10M limit, count-only, Go):**
+
+| Wheel | `fastsieve` (byte) | `bitsgofastsieve` (bit) | Δ |
+|-------|-------------------|------------------------|---|
+| 30 | 39.0ms | 31.4ms | **+20%** |
+| 210 | 34.8ms | 26.4ms | **+24%** |
+| 2310 | 41.4ms | 28.6ms | **+31%** |
+
+Bit-packed wheel-2310 (28.6ms) is the fastest configuration, surpassing byte-based wheel-210 (34.8ms)
+by 18%.
+
+All hashes and output are identical between the two binaries — only the inner loop changes.
+
 ## Examples
 
 ### File output with hash sidecar
@@ -260,8 +285,11 @@ The implementation is split across two packages:
 - `mathkat.go`: `StreamHasher` — streaming SHA-256 in `ascii_integer_lf` format
 - `state.go`: `StateWriter`, `StateHeader` — 48-byte binary checkpoint format
 
-**`cmd/fastsieve/`** — CLI:
+**`cmd/fastsieve/`** — CLI (byte-based, all wheels):
 - `main.go`: Flag parsing, sieve orchestration, file I/O, resume logic
+
+**`cmd/bitsgofastsieve/`** — CLI (bit-packed, wheels 30/210/2310):
+- `main.go`: Same interface, uses `BitPackedEratosthenes` for up to 31% faster Phase 2 scanning
 
 ### State File Format
 
