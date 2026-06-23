@@ -9,7 +9,7 @@ import (
 // crossValidate verifies that bit-packed and byte-based sieves produce
 // the same primes at the given limit for all wheel moduli.
 func crossValidate(t *testing.T, limit uint64) {
-	mods := []uint64{2, 6, 30, 210, 2310}
+	mods := []uint64{2, 6, 30, 210, 2310, 30030}
 	for _, mod := range mods {
 		// Reference: byte-based sieve
 		ref := NewEratosthenesWithWheel(limit, mod)
@@ -78,9 +78,9 @@ func TestBitPackedHashConsistency(t *testing.T) {
 		mod   uint64
 	}
 	cases := []testCase{
-		{1000, 2}, {1000, 6}, {1000, 30}, {1000, 210}, {1000, 2310},
-		{1000000, 2}, {1000000, 6}, {1000000, 30}, {1000000, 210}, {1000000, 2310},
-		{1000000000, 2}, {1000000000, 6}, {1000000000, 30}, {1000000000, 210}, {1000000000, 2310},
+		{1000, 2}, {1000, 6}, {1000, 30}, {1000, 210}, {1000, 2310}, {1000, 30030},
+		{1000000, 2}, {1000000, 6}, {1000000, 30}, {1000000, 210}, {1000000, 2310}, {1000000, 30030},
+		{1000000000, 2}, {1000000000, 6}, {1000000000, 30}, {1000000000, 210}, {1000000000, 2310}, {1000000000, 30030},
 	}
 	for _, c := range cases {
 		// Generate reference hash with byte-based sieve
@@ -138,7 +138,7 @@ func BenchmarkBitPackedWheel2310(b *testing.B) {
 
 func BenchmarkBitPackedVsByteComparison(b *testing.B) {
 	limit := uint64(10_000_000)
-	mods := []uint64{2, 6, 30, 210, 2310}
+	mods := []uint64{2, 6, 30, 210, 2310, 30030}
 	for _, mod := range mods {
 		b.Run(fmt.Sprintf("byte-wheel-%d", mod), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
@@ -166,6 +166,18 @@ func BenchmarkParallelComparison(b *testing.B) {
 		b.Run(fmt.Sprintf("seq-wheel-2310-%d", limit), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				s := NewBitPackedEratosthenes(limit, 2310)
+				s.ForEachPrimeSequential(func(uint64) bool { return true })
+			}
+		})
+		b.Run(fmt.Sprintf("par-wheel-30030-%d", limit), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				s := NewBitPackedEratosthenes(limit, 30030)
+				s.ForEachPrime(func(uint64) bool { return true })
+			}
+		})
+		b.Run(fmt.Sprintf("seq-wheel-30030-%d", limit), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				s := NewBitPackedEratosthenes(limit, 30030)
 				s.ForEachPrimeSequential(func(uint64) bool { return true })
 			}
 		})

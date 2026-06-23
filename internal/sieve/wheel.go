@@ -65,6 +65,8 @@ func wheelPrimesForMod(mod uint64) []uint64 {
 		return []uint64{2, 3, 5, 7}
 	case 2310:
 		return []uint64{2, 3, 5, 7, 11}
+	case 30030:
+		return []uint64{2, 3, 5, 7, 11, 13}
 	default:
 		return nil
 	}

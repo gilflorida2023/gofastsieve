@@ -14,7 +14,7 @@ import (
 func main() {
 	count := flag.Uint64("count", 0, "Generate first COUNT primes")
 	limit := flag.Uint64("limit", 0, "Generate primes up to LIMIT")
-	wheelMod := flag.Uint64("wheel", 210, "Wheel modulus (30, 210, 2310); use fastsieve for wheel 2/6")
+	wheelMod := flag.Uint64("wheel", 210, "Wheel modulus (30, 210, 2310, 30030); use fastsieve for wheel 2/6")
 	hashFlag := flag.Bool("hash", false, "Output Math-KAT SHA-256 hex hash to stdout")
 	verify := flag.String("verify", "", "Verify hash against EXPECTED hex string")
 	output := flag.Bool("output", false, "Print integers to stdout")
@@ -60,9 +60,9 @@ func main() {
 		os.Exit(1)
 	}
 	switch *wheelMod {
-	case 30, 210, 2310:
+	case 30, 210, 2310, 30030:
 	default:
-		fmt.Fprintf(os.Stderr, "error: wheel %d not supported in bitsgofastsieve (use fastsieve for wheel 2/6; supported here: 30, 210, 2310)\n", *wheelMod)
+		fmt.Fprintf(os.Stderr, "error: wheel %d not supported in bitsgofastsieve (use fastsieve for wheel 2/6; supported here: 30, 210, 2310, 30030)\n", *wheelMod)
 		os.Exit(1)
 	}
 	if *count > 0 {

@@ -14,7 +14,13 @@ const preSieveCutoff = 100
 // segSpanMul scales the segment span to reduce per-segment overhead.
 // Higher values = fewer, larger segments = fewer goroutine creations
 // and buffer allocations. Must be ≥ 1.
-const segSpanMul = 256
+// Wheel-30030 uses smaller multiplier to limit buffer size.
+func segSpanMulForWheel(spokeCount int) int {
+	if spokeCount >= 5000 {
+		return 32 // wheel-30030: smaller segments to fit in cache
+	}
+	return 256 // wheel-2310 and smaller
+}
 
 type preSieveMask struct {
 	prime uint64
@@ -35,9 +41,10 @@ type BitPackedEratosthenes struct {
 func NewBitPackedEratosthenes(limit, wheelMod uint64) *BitPackedEratosthenes {
 	w := NewWheel(wheelMod)
 	ws := uint64((w.SpokeCount + 63) / 64)
+	mul := segSpanMulForWheel(w.SpokeCount)
 	e := &BitPackedEratosthenes{
 		limit:      limit,
-		segSpan:    ((262144 * segSpanMul) / uint64(w.SpokeCount)) * w.Modulus,
+		segSpan:    ((262144 * uint64(mul)) / uint64(w.SpokeCount)) * w.Modulus,
 		wheel:      w,
 		wordStride: ws,
 	}
