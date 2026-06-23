@@ -153,3 +153,20 @@ func BenchmarkBitPackedVsByteComparison(b *testing.B) {
 		})
 	}
 }
+
+func BenchmarkParallelComparison(b *testing.B) {
+	for _, limit := range []uint64{10_000_000, 50_000_000, 100_000_000, 200_000_000} {
+		b.Run(fmt.Sprintf("par-wheel-2310-%d", limit), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				s := NewBitPackedEratosthenes(limit, 2310)
+				s.ForEachPrime(func(uint64) bool { return true })
+			}
+		})
+		b.Run(fmt.Sprintf("seq-wheel-2310-%d", limit), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				s := NewBitPackedEratosthenes(limit, 2310)
+				s.ForEachPrimeSequential(func(uint64) bool { return true })
+			}
+		})
+	}
+}

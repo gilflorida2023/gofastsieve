@@ -3,6 +3,7 @@ package sieve
 import (
 	"math"
 	"math/bits"
+	"runtime"
 )
 
 // preSieveCutoff is the largest prime handled by pre-sieve masks.
@@ -65,7 +66,17 @@ func (e *BitPackedEratosthenes) initPreSieve() {
 
 // ForEachPrime calls fn for each prime up to the limit.
 // Returns early if fn returns false.
+// Automatically parallelizes for non-trivial limits on multi-core systems.
 func (e *BitPackedEratosthenes) ForEachPrime(fn func(uint64) bool) {
+	if e.limit >= minParallelLimit && runtime.GOMAXPROCS(0) > 1 {
+		e.parallelGenerate(fn)
+	} else {
+		e.generate(fn)
+	}
+}
+
+// ForEachPrimeSequential calls fn for each prime using the sequential algorithm.
+func (e *BitPackedEratosthenes) ForEachPrimeSequential(fn func(uint64) bool) {
 	e.generate(fn)
 }
 
