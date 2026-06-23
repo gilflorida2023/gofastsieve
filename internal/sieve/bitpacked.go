@@ -11,6 +11,11 @@ import (
 // bit patterns at each block, avoiding the inner marking loop for dense multiples.
 const preSieveCutoff = 100
 
+// segSpanMul scales the segment span to reduce per-segment overhead.
+// Higher values = fewer, larger segments = fewer goroutine creations
+// and buffer allocations. Must be ≥ 1.
+const segSpanMul = 32
+
 type preSieveMask struct {
 	prime uint64
 	masks []uint64 // p masks, each of wordStride words
@@ -32,7 +37,7 @@ func NewBitPackedEratosthenes(limit, wheelMod uint64) *BitPackedEratosthenes {
 	ws := uint64((w.SpokeCount + 63) / 64)
 	e := &BitPackedEratosthenes{
 		limit:      limit,
-		segSpan:    (262144 / uint64(w.SpokeCount)) * w.Modulus,
+		segSpan:    ((262144 * segSpanMul) / uint64(w.SpokeCount)) * w.Modulus,
 		wheel:      w,
 		wordStride: ws,
 	}
