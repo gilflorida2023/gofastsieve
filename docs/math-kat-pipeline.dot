@@ -1,0 +1,39 @@
+digraph math_kat_pipeline {
+    rankdir=LR;
+    splines=true;
+    node [fontname="Helvetica,Arial,sans-serif", fontsize=11];
+    edge [fontname="Helvetica,Arial,sans-serif", fontsize=10];
+
+    subgraph cluster_sieve {
+        label="Sieve Engine (64 KB working set)";
+        style=filled;
+        fillcolor="#E8F0FE";
+        color="#4A86E8";
+        sieve [label="Segmented\nWheel Sieve", shape=box, style=filled, fillcolor="#4A86E8", fontcolor=white];
+    }
+
+    subgraph cluster_hasher {
+        label="Math-KAT StreamHasher (0 bytes written)";
+        style=filled;
+        fillcolor="#F0FDE8";
+        color="#34A853";
+        hasher [label="Streaming\nSHA-256\n(strconv+I/O)", shape=box, style=filled, fillcolor="#34A853", fontcolor=white];
+    }
+
+    subgraph cluster_verify {
+        label="Verification (zero-copy)";
+        style=filled;
+        fillcolor="#FFF8E1";
+        color="#FBBC04";
+        verify [label="Compare vs\nManifest\n(PASS/FAIL)", shape=diamond, style=filled, fillcolor="#FBBC04"];
+    }
+
+    sieve -> hasher [label="  uint64 primes  "];
+    hasher -> verify [label="  32-byte digest  "];
+
+    disk [label="Disk: 0 bytes\n(no temp files)", shape=box3d, style=filled, fillcolor="#F8F9FA", color="#9AA0A6"];
+
+    { rank=same; sieve; disk; }
+
+    sieve -> disk [style=dashed, arrowhead=none, label="  avoids  ", color="#EA4335", fontcolor="#EA4335"];
+}
