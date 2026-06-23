@@ -59,6 +59,7 @@ func (e *BitPackedEratosthenes) parallelGenerate(emit func(uint64) bool) {
 	}
 
 	var stop atomic.Bool
+	var seg []uint64
 
 	for lo <= e.limit {
 		if stop.Load() {
@@ -77,7 +78,10 @@ func (e *BitPackedEratosthenes) parallelGenerate(emit func(uint64) bool) {
 
 		// Shared buffer: each goroutine writes to non-overlapping block regions.
 		// Different core → different cache lines → no race on x86-64.
-		seg := make([]uint64, segLen)
+		if cap(seg) < int(segLen) {
+			seg = make([]uint64, segLen)
+		}
+		seg = seg[:segLen]
 
 		type blockRange struct{ start, end uint64 }
 		ranges := make([]blockRange, nCPU)

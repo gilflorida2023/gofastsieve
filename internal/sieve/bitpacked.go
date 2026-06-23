@@ -14,7 +14,7 @@ const preSieveCutoff = 100
 // segSpanMul scales the segment span to reduce per-segment overhead.
 // Higher values = fewer, larger segments = fewer goroutine creations
 // and buffer allocations. Must be ≥ 1.
-const segSpanMul = 32
+const segSpanMul = 256
 
 type preSieveMask struct {
 	prime uint64
