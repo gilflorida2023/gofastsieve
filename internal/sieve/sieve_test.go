@@ -80,6 +80,46 @@ func TestStreamHasherFormat(t *testing.T) {
 	}
 }
 
+func TestWheel2310(t *testing.T) {
+	w := NewWheel(2310)
+	if w.SpokeCount != 480 {
+		t.Errorf("SpokeCount = %d, want 480", w.SpokeCount)
+	}
+	if len(w.Spokes) != 480 {
+		t.Errorf("len(Spokes) = %d, want 480", len(w.Spokes))
+	}
+	if w.Spokes[0] != 1 {
+		t.Errorf("first spoke = %d, want 1", w.Spokes[0])
+	}
+	// 121 = 11^2, should NOT be a spoke (divisible by wheel prime 11)
+	if w.ResidueToBit[121] >= 0 {
+		t.Error("121 should not be a spoke residue (divisible by 11)")
+	}
+	// 169 = 13^2, should be a spoke (not divisible by any wheel prime)
+	if w.ResidueToBit[169] < 0 {
+		t.Error("169 should be a spoke residue (coprime to 2,3,5,7,11)")
+	}
+}
+
+func TestEratosthenesWheel2310Count(t *testing.T) {
+	cases := []struct {
+		limit uint64
+		count int
+	}{
+		{100, 25},
+		{1000, 168},
+		{10000, 1229},
+	}
+	for _, c := range cases {
+		s := NewEratosthenesWithWheel(c.limit, 2310)
+		n := 0
+		s.ForEachPrime(func(uint64) bool { n++; return true })
+		if n != c.count {
+			t.Errorf("wheel-2310 limit=%d: got %d primes, want %d", c.limit, n, c.count)
+		}
+	}
+}
+
 func TestHashN(t *testing.T) {
 	// Verify against Math-KAT manifest checkpoint hashes
 	cases := []struct {

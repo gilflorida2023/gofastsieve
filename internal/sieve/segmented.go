@@ -2,22 +2,26 @@ package sieve
 
 import "math"
 
-// Eratosthenes implements a wheel-210 segmented prime sieve.
+// Eratosthenes implements a wheel-based segmented prime sieve.
 type Eratosthenes struct {
 	limit   uint64
-	segSpan uint64 // number of integers per segment
+	segSpan uint64
+	wheel   *Wheel
 }
 
-// NewEratosthenes creates a segmented sieve for primes up to limit.
+// NewEratosthenes creates a segmented sieve for primes up to limit using wheel-210.
 func NewEratosthenes(limit uint64) *Eratosthenes {
+	return NewEratosthenesWithWheel(limit, 210)
+}
+
+// NewEratosthenesWithWheel creates a segmented sieve with the given wheel modulus.
+func NewEratosthenesWithWheel(limit, wheelMod uint64) *Eratosthenes {
+	w := NewWheel(wheelMod)
 	return &Eratosthenes{
 		limit:   limit,
-		segSpan: defaultSegSpan(limit),
+		segSpan: (262144 / uint64(w.SpokeCount)) * w.Modulus,
+		wheel:   w,
 	}
-}
-
-func defaultSegSpan(uint64) uint64 {
-	return (262144 / WheelSpoke) * WheelMod
 }
 
 // ForEachPrime calls fn for each prime up to the limit.
@@ -37,31 +41,18 @@ func (e *Eratosthenes) Primes() <-chan uint64 {
 }
 
 func (e *Eratosthenes) generate(emit func(uint64) bool) {
-	if e.limit < 2 {
-		return
+	// Emit wheel-defining primes (2,3,5,7 for 210; 2,3,5 for 30; etc.)
+	for _, p := range e.wheel.WheelPrimes {
+		if p > e.limit {
+			return
+		}
+		if !emit(p) {
+			return
+		}
 	}
-	if !emit(2) {
-		return
-	}
-	if e.limit < 3 {
-		return
-	}
-	if !emit(3) {
-		return
-	}
-	if e.limit < 5 {
-		return
-	}
-	if !emit(5) {
-		return
-	}
-	if e.limit < 7 {
-		return
-	}
-	if !emit(7) {
-		return
-	}
-	if e.limit < 11 {
+
+	lastWheelPrime := e.wheel.WheelPrimes[len(e.wheel.WheelPrimes)-1]
+	if e.limit <= lastWheelPrime {
 		return
 	}
 
@@ -70,16 +61,16 @@ func (e *Eratosthenes) generate(emit func(uint64) bool) {
 
 	var wheels []WheelPrime
 	for _, p := range basePrimes {
-		if p <= 7 {
+		if p <= lastWheelPrime {
 			continue
 		}
 		if !emit(p) {
 			return
 		}
-		wheels = append(wheels, NewWheelPrime(p))
+		wheels = append(wheels, NewWheelPrime(p, e.wheel))
 	}
 
-	stride := uint64(WheelSpoke)
+	stride := uint64(e.wheel.SpokeCount)
 	lo := sqrtLimit + 1
 
 	var buf []byte
@@ -89,8 +80,8 @@ func (e *Eratosthenes) generate(emit func(uint64) bool) {
 			hi = e.limit
 		}
 
-		firstBlock := lo / WheelMod
-		lastBlock := hi / WheelMod
+		firstBlock := lo / e.wheel.Modulus
+		lastBlock := hi / e.wheel.Modulus
 		numBlocks := lastBlock - firstBlock + 1
 		segLen := numBlocks * stride
 
@@ -120,18 +111,18 @@ func (e *Eratosthenes) generate(emit func(uint64) bool) {
 				continue
 			}
 
-			block := m / WheelMod
-			r := m % WheelMod
+			block := m / e.wheel.Modulus
+			r := m % e.wheel.Modulus
 
 			for m <= hi {
-				if ri := ResidueToBit[r]; ri >= 0 {
+				if ri := e.wheel.ResidueToBit[r]; ri >= 0 {
 					buf[(block-firstBlock)*stride+uint64(ri)] = 0
 				}
 				m += p
 				block += wp.BlkStep
 				r += wp.Step
-				if r >= WheelMod {
-					r -= WheelMod
+				if r >= e.wheel.Modulus {
+					r -= e.wheel.Modulus
 					block++
 				}
 			}
@@ -140,11 +131,11 @@ func (e *Eratosthenes) generate(emit func(uint64) bool) {
 		// Phase 2: scan survivors and emit
 		for bi := uint64(0); bi < numBlocks; bi++ {
 			base := bi * stride
-			for si := 0; si < WheelSpoke; si++ {
+			for si := 0; si < e.wheel.SpokeCount; si++ {
 				if buf[base+uint64(si)] == 0 {
 					continue
 				}
-				n := (firstBlock+bi)*WheelMod + Spokes[si]
+				n := (firstBlock+bi)*e.wheel.Modulus + e.wheel.Spokes[si]
 				if n < lo || n > hi {
 					continue
 				}
