@@ -62,6 +62,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error: specify --count or --limit, not both")
 		os.Exit(1)
 	}
+	switch *wheelMod {
+	case 2, 6, 30, 210, 2310:
+		// valid
+	default:
+		fmt.Fprintf(os.Stderr, "error: invalid wheel modulus %d (supported: 2, 6, 30, 210, 2310)\n", *wheelMod)
+		os.Exit(1)
+	}
 	if *count > 0 {
 		runCount(*count, *wheelMod, *hashFlag, *verify, *outputFile, *hashOutput, *output, *countOnly, *saveState, *stateFile, *progress)
 	} else {
