@@ -80,6 +80,7 @@ func TestBitPackedHashConsistency(t *testing.T) {
 	cases := []testCase{
 		{1000, 2}, {1000, 6}, {1000, 30}, {1000, 210}, {1000, 2310},
 		{1000000, 2}, {1000000, 6}, {1000000, 30}, {1000000, 210}, {1000000, 2310},
+		{1000000000, 2}, {1000000000, 6}, {1000000000, 30}, {1000000000, 210}, {1000000000, 2310},
 	}
 	for _, c := range cases {
 		// Generate reference hash with byte-based sieve
