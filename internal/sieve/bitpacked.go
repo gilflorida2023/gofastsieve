@@ -5,30 +5,61 @@ import (
 	"math/bits"
 )
 
+// preSieveCutoff is the largest prime handled by pre-sieve masks.
+// Primes > lastWheelPrime and <= preSieveCutoff are masked via pre-computed
+// bit patterns at each block, avoiding the inner marking loop for dense multiples.
+const preSieveCutoff = 100
+
+type preSieveMask struct {
+	prime uint64
+	masks []uint64 // p masks, each of wordStride words
+}
+
 // BitPackedEratosthenes implements a wheel-based segmented prime sieve
-// using a bit-packed segment buffer. Instead of one byte per spoke,
-// it packs all spokes of a block into uint64 words, using bits.TrailingZeros64
-// to efficiently scan only surviving residues.
-//
-// This provides the greatest benefit for large wheels (especially wheel-2310
-// with 480 spokes packed into 8 uint64 words) where the Phase 2 scan loop
-// is the primary bottleneck.
+// using a bit-packed segment buffer.
 type BitPackedEratosthenes struct {
-	limit      uint64
-	segSpan    uint64
-	wheel      *Wheel
-	wordStride uint64 // uint64 words per wheel block = ceil(SpokeCount / 64)
+	limit         uint64
+	segSpan       uint64
+	wheel         *Wheel
+	wordStride    uint64 // uint64 words per wheel block = ceil(SpokeCount / 64)
+	preSieveMasks []preSieveMask
 }
 
 // NewBitPackedEratosthenes creates a bit-packed segmented sieve.
 func NewBitPackedEratosthenes(limit, wheelMod uint64) *BitPackedEratosthenes {
 	w := NewWheel(wheelMod)
 	ws := uint64((w.SpokeCount + 63) / 64)
-	return &BitPackedEratosthenes{
+	e := &BitPackedEratosthenes{
 		limit:      limit,
 		segSpan:    (262144 / uint64(w.SpokeCount)) * w.Modulus,
 		wheel:      w,
 		wordStride: ws,
+	}
+	e.initPreSieve()
+	return e
+}
+
+func (e *BitPackedEratosthenes) initPreSieve() {
+	w := e.wheel
+	ws := e.wordStride
+	lastWheelPrime := w.WheelPrimes[len(w.WheelPrimes)-1]
+
+	allPrimes := SimpleSieve(preSieveCutoff)
+	for _, p := range allPrimes {
+		if p <= lastWheelPrime {
+			continue
+		}
+		masks := make([]uint64, p*ws)
+		for b := uint64(0); b < p; b++ {
+			for si, s := range w.Spokes {
+				if (b*w.Modulus+s)%p == 0 {
+					wi := uint64(si) / 64
+					bi := uint64(si) % 64
+					masks[b*ws+wi] |= 1 << bi
+				}
+			}
+		}
+		e.preSieveMasks = append(e.preSieveMasks, preSieveMask{prime: p, masks: masks})
 	}
 }
 
@@ -97,9 +128,31 @@ func (e *BitPackedEratosthenes) generate(emit func(uint64) bool) {
 			buf[segLen-1] &= (1 << lastBits) - 1
 		}
 
-		// Phase 1: mark multiples of wheel primes
+		// Phase 0: pre-sieve small primes via pre-computed masks
+		// Only primes ≤ sqrtLimit are pre-sieved. Primes > sqrtLimit are
+		// survivors in the sieve range; marking them as composite is incorrect.
+		for _, psm := range e.preSieveMasks {
+			p := psm.prime
+			if p > sqrtLimit {
+				continue
+			}
+			masks := psm.masks
+			for bi := uint64(0); bi < numBlocks; bi++ {
+				bMod := (firstBlock + bi) % p
+				off := bi * ws
+				moff := bMod * ws
+				for wi := uint64(0); wi < ws; wi++ {
+					buf[off+wi] &^= masks[moff+wi]
+				}
+			}
+		}
+
+		// Phase 1: mark multiples of wheel primes (small primes handled by Phase 0)
 		for _, wp := range wheels {
 			p := wp.Prime
+			if p <= preSieveCutoff {
+				continue
+			}
 			if p > hi {
 				continue
 			}
